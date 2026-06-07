@@ -78,7 +78,7 @@ mongodb:
 
 # warning: no legacy color support, you must use minimessage format: https://docs.advntr.dev/minimessage/format.html)
 messages:
-  name: "name" # should not contain a space
+  name: "name" # should be lowercase and not contain a space
   ping-command: "Get bot latency"
   link-command: "Link your Minecraft account on the server"
   link-command-name: "The Minecraft account username you want to link"
