@@ -31,6 +31,9 @@ reward-command: []
 # command to execute when a player unlink
 unlink-command: []
 
+# if enabled, automatically unlink a player when they leave or get banned from the Discord server
+auto-unlink-on-leave: false
+
 # command to execute when a player with boost rank execute /claimboost, can be executed every months
 boost-reward: []
 

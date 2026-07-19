@@ -155,6 +155,7 @@ public class DiscordSyncVelocity {
                         config.getBoolean("one-time-reward", true),
                         config.getListString("reward-command"),
                         config.getListString("unlink-command"),
+                        config.getBoolean("auto-unlink-on-leave", false),
                         config.getListString("boost-reward"),
                         config.getString("date-format"),
                         new DiscordActivity(config.getBoolean("activity.enable", false), config.getString("activity.type", "PLAYING"), config.getString("activity.message", "DiscordRankSync")),

@@ -128,6 +128,7 @@ public class DiscordSyncBukkit extends JavaPlugin {
                         getConfig().getBoolean("one-time-reward", true),
                         getConfig().getStringList("reward-command"),
                         getConfig().getStringList("unlink-command"),
+                        getConfig().getBoolean("auto-unlink-on-leave", false),
                         getConfig().getStringList("boost-reward"),
                         getConfig().getString("date-format"),
                         new DiscordActivity(getConfig().getBoolean("activity.enable", false), getConfig().getString("activity.type", "PLAYING"), getConfig().getString("activity.message", "DiscordRankSync")),
