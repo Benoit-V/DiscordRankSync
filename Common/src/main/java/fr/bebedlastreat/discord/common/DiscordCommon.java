@@ -7,6 +7,7 @@ import fr.bebedlastreat.discord.common.commands.UnlinkCommand;
 import fr.bebedlastreat.discord.common.enums.DatabaseType;
 import fr.bebedlastreat.discord.common.enums.ServerType;
 import fr.bebedlastreat.discord.common.interfaces.*;
+import fr.bebedlastreat.discord.common.listeners.GuildMemberListener;
 import fr.bebedlastreat.discord.common.listeners.JoinListener;
 import fr.bebedlastreat.discord.common.listeners.SlashCommandListener;
 import fr.bebedlastreat.discord.common.logger.DefaultLogger;
@@ -47,6 +48,7 @@ import java.text.SimpleDateFormat;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -85,6 +87,7 @@ public class DiscordCommon {
     private final boolean oneTimeReward;
     private final List<String> rewardCommand;
     private final List<String> unlinkCommandList;
+    private final boolean autoUnlinkOnLeave;
     private final List<String> boostReward;
     private final SimpleDateFormat sdf;
     private final DiscordActivity activity;
@@ -115,6 +118,7 @@ public class DiscordCommon {
                          boolean oneTimeReward,
                          List<String> rewardCommand,
                          List<String> unlinkCommandList,
+                         boolean autoUnlinkOnLeave,
                          List<String> boostReward,
                          String dataFormat,
                          DiscordActivity activity,
@@ -135,6 +139,7 @@ public class DiscordCommon {
         this.oneTimeReward = oneTimeReward;
         this.rewardCommand = rewardCommand;
         this.unlinkCommandList = unlinkCommandList;
+        this.autoUnlinkOnLeave = autoUnlinkOnLeave;
         this.boostReward = boostReward;
         this.sdf = new SimpleDateFormat(dataFormat);
         this.activity = activity;
@@ -198,7 +203,7 @@ public class DiscordCommon {
                 .enableIntents(GatewayIntent.GUILD_MEMBERS)
                 .setMemberCachePolicy(MemberCachePolicy.BOOSTER)
                 .setAutoReconnect(true)
-                .addEventListeners(new SlashCommandListener(this))
+                .addEventListeners(new SlashCommandListener(this), new GuildMemberListener(this))
                 .build();
         if (activity.isEnable()) {
             jda.getPresence().setActivity(Activity.of(activity.getActivityType(), activity.getMessage()));
@@ -292,6 +297,39 @@ public class DiscordCommon {
             if (ex instanceof InsufficientPermissionException) {
                 logger.log(Level.WARNING, "the bot has not the permission to manage roles");
             }
+        }
+    }
+
+    public void unlinkByDiscordId(String discordId, boolean removeRoles) {
+        if (!databaseFetch.exist(discordId)) {
+            return;
+        }
+
+        try {
+            String uuid = databaseFetch.uuid(discordId);
+            String name = databaseFetch.name(UUID.fromString(uuid));
+
+            if (!unlinkCommandList.isEmpty()) {
+                runner.runLater(() -> {
+                    for (String command : unlinkCommandList) {
+                        consoleExecutor.execute(command.replace("{player}", name).replace("{uuid}", uuid), null);
+                    }
+                }, 0);
+            }
+        } catch (Exception ex) {
+            logger.log(Level.SEVERE, "Can't fetch minecraft user data from discord user " + discordId);
+            ex.printStackTrace();
+        }
+
+        databaseFetch.delete(discordId);
+        linkCount--;
+
+        if (removeRoles) {
+            runner.runAsync(() -> {
+                for (DiscordRank rank : ranks) {
+                    removeRole(discordId, rank);
+                }
+            });
         }
     }
 

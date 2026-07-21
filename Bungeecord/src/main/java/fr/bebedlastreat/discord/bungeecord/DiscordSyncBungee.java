@@ -138,6 +138,7 @@ public class DiscordSyncBungee extends Plugin {
                         config.getBoolean("one-time-reward", true),
                         config.getStringList("reward-command"),
                         config.getStringList("unlink-command"),
+                        config.getBoolean("auto-unlink-on-leave", false),
                         config.getStringList("boost-reward"),
                         config.getString("date-format"),
                         new DiscordActivity(config.getBoolean("activity.enable", false), config.getString("activity.type", "PLAYING"),config.getString("activity.message", "DiscordRankSync")),
