@@ -2,20 +2,36 @@ package fr.bebedlastreat.discord.common.sql;
 
 import fr.bebedlastreat.discord.common.interfaces.IDatabaseFetch;
 
-import java.sql.SQLException;
 import java.util.UUID;
 
+/**
+ * {@link IDatabaseFetch} for every JDBC backend (MySQL/MariaDB and SQLite).
+ */
 public class SqlFetch implements IDatabaseFetch {
 
-    private final SqlHandler sql;
+    private final AbstractSqlHandler sql;
 
-    public SqlFetch(SqlHandler sql) {
+    public SqlFetch(AbstractSqlHandler sql) {
         this.sql = sql;
     }
 
+    private String queryString(String qry, String column, Object param) {
+        return sql.query(qry, rs -> {
+            if (rs.next()) {
+                String value = rs.getString(column);
+                return value == null ? "" : value;
+            }
+            return "";
+        }, param);
+    }
+
+    private int queryCount(String table) {
+        return sql.query("SELECT COUNT(*) FROM " + table, rs -> rs.next() ? rs.getInt(1) : 0);
+    }
+
     @Override
-    public void insert(UUID uuid, String name, String discord) {
-        sql.update("INSERT INTO " + sql.getTable() + " (uuid, name, discord) VALUES (?, ?, ?)", uuid.toString(), name, discord);
+    public boolean insert(UUID uuid, String name, String discord) {
+        return sql.update("INSERT INTO " + sql.getTable() + " (uuid, name, discord) VALUES (?, ?, ?)", uuid.toString(), name, discord) > 0;
     }
 
     @Override
@@ -25,17 +41,7 @@ public class SqlFetch implements IDatabaseFetch {
 
     @Override
     public boolean firstLink(UUID uuid) {
-        return (Boolean) sql.query("SELECT uuid FROM " + sql.getAllTimeTable() + " WHERE uuid='" + uuid + "'", rs -> {
-            boolean result = true;
-            try {
-                if (rs.next()) {
-                    result = false;
-                }
-            } catch (SQLException e) {
-                throw new RuntimeException(e);
-            }
-            return result;
-        });
+        return sql.query("SELECT uuid FROM " + sql.getAllTimeTable() + " WHERE uuid=?", rs -> !rs.next(), uuid.toString());
     }
 
     @Override
@@ -44,113 +50,53 @@ public class SqlFetch implements IDatabaseFetch {
     }
 
     @Override
-    public void delete(UUID uuid) {
-        sql.update("DELETE FROM " + sql.getTable() + " WHERE uuid=?", uuid.toString());
+    public boolean delete(UUID uuid) {
+        return sql.update("DELETE FROM " + sql.getTable() + " WHERE uuid=?", uuid.toString()) > 0;
     }
 
     @Override
-    public void delete(String discord) {
-        sql.update("DELETE FROM " + sql.getTable() + " WHERE discord=?", discord);
+    public boolean delete(String discord) {
+        return sql.update("DELETE FROM " + sql.getTable() + " WHERE discord=?", discord) > 0;
     }
 
     @Override
     public boolean exist(String discord) {
-        return uuid(discord).length() > 0;
+        return !uuid(discord).isEmpty();
     }
 
     @Override
     public boolean exist(UUID uuid) {
-        return discord(uuid).length() > 0;
+        return !discord(uuid).isEmpty();
     }
 
     @Override
     public String discord(UUID uuid) {
-        return (String) sql.query("SELECT discord FROM " + sql.getTable() + " WHERE uuid='" + uuid + "'", rs -> {
-            String discord = "";
-            try {
-                if (rs.next()) {
-                    discord = rs.getString("discord");
-                }
-            } catch (SQLException e) {
-                throw new RuntimeException(e);
-            }
-            return discord;
-        });
+        return queryString("SELECT discord FROM " + sql.getTable() + " WHERE uuid=?", "discord", uuid.toString());
     }
 
     @Override
     public String discord(String name) {
-        return (String) sql.query("SELECT discord FROM " + sql.getTable() + " WHERE name='" + name + "'", rs -> {
-            String discord = "";
-            try {
-                if (rs.next()) {
-                    discord = rs.getString("discord");
-                }
-            } catch (SQLException e) {
-                throw new RuntimeException(e);
-            }
-            return discord;
-        });
+        return queryString("SELECT discord FROM " + sql.getTable() + " WHERE name=?", "discord", name);
     }
 
     @Override
     public String uuid(String discord) {
-        return (String) sql.query("SELECT uuid FROM " + sql.getTable() + " WHERE discord='" + discord + "'", rs -> {
-            String uuid = "";
-            try {
-                if (rs.next()) {
-                    uuid = rs.getString("uuid");
-                }
-            } catch (SQLException e) {
-                throw new RuntimeException(e);
-            }
-            return uuid;
-        });
+        return queryString("SELECT uuid FROM " + sql.getTable() + " WHERE discord=?", "uuid", discord);
     }
 
     @Override
     public String name(UUID uuid) {
-        return (String) sql.query("SELECT name FROM " + sql.getTable() + " WHERE uuid='" + uuid + "'", rs -> {
-            String discord = "";
-            try {
-                if (rs.next()) {
-                    discord = rs.getString("name");
-                }
-            } catch (SQLException e) {
-                throw new RuntimeException(e);
-            }
-            return discord;
-        });
+        return queryString("SELECT name FROM " + sql.getTable() + " WHERE uuid=?", "name", uuid.toString());
     }
 
     @Override
     public int count() {
-        return (Integer) sql.query("SELECT COUNT(*) FROM " + sql.getTable(), rs -> {
-            int result = 0;
-            try {
-                if (rs.next()) {
-                    result = rs.getInt("COUNT(*)");
-                }
-            } catch (SQLException e) {
-                throw new RuntimeException(e);
-            }
-            return result;
-        });
+        return queryCount(sql.getTable());
     }
 
     @Override
     public int allTimeCount() {
-        return (Integer) sql.query("SELECT COUNT(*) FROM " + sql.getAllTimeTable(), rs -> {
-            int result = 0;
-            try {
-                if (rs.next()) {
-                    result = rs.getInt("COUNT(*)");
-                }
-            } catch (SQLException e) {
-                throw new RuntimeException(e);
-            }
-            return result;
-        });
+        return queryCount(sql.getAllTimeTable());
     }
 
     @Override
@@ -165,33 +111,17 @@ public class SqlFetch implements IDatabaseFetch {
 
     @Override
     public boolean canBoost(UUID uuid) {
-        return (Boolean) sql.query("SELECT finish_time FROM " + sql.getBoostTable() + " WHERE uuid='" + uuid + "'", rs -> {
-            boolean result = true;
-            try {
-                if (rs.next()) {
-                    long time = rs.getLong("finish_time");
-                    result = System.currentTimeMillis() > time;
-                }
-            } catch (SQLException e) {
-                throw new RuntimeException(e);
-            }
-            return result;
-        });
+        return System.currentTimeMillis() > getNextBoost(uuid);
     }
 
     @Override
     public long getNextBoost(UUID uuid) {
-        return (Long) sql.query("SELECT finish_time FROM " + sql.getBoostTable() + " WHERE uuid='" + uuid + "'", rs -> {
-            long result = 0;
-            try {
-                if (rs.next()) {
-                    result = rs.getLong("finish_time");
-                }
-            } catch (SQLException e) {
-                throw new RuntimeException(e);
-            }
-            return result;
-        });
+        return sql.query("SELECT finish_time FROM " + sql.getBoostTable() + " WHERE uuid=?",
+                rs -> rs.next() ? rs.getLong("finish_time") : 0L, uuid.toString());
     }
 
+    @Override
+    public void close() {
+        sql.close();
+    }
 }

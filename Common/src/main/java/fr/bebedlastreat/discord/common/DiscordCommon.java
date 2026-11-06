@@ -23,8 +23,8 @@ import fr.bebedlastreat.discord.common.sql.SqlCredentials;
 import fr.bebedlastreat.discord.common.sql.SqlFetch;
 import fr.bebedlastreat.discord.common.sql.SqlHandler;
 import fr.bebedlastreat.discord.common.sqlite.SQLiteCredentials;
-import fr.bebedlastreat.discord.common.sqlite.SQLiteFetch;
 import fr.bebedlastreat.discord.common.sqlite.SQLiteHandler;
+import fr.bebedlastreat.discord.common.utils.NonOverlappingTask;
 import fr.bebedlastreat.discord.redisbungee.RedisBungeeManager;
 import lombok.Data;
 import lombok.Getter;
@@ -45,11 +45,13 @@ import net.dv8tion.jda.api.utils.MemberCachePolicy;
 
 import java.io.File;
 import java.text.SimpleDateFormat;
-import java.util.HashMap;
-import java.util.List;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -65,14 +67,15 @@ public class DiscordCommon {
     private final String token;
     private final String guildId;
     private final boolean rename;
-    private final JDA jda;
-    private final Guild guild;
+    private volatile JDA jda;
+    private volatile Guild guild;
     private final DatabaseType databaseType;
     private final Map<String, Object> credentials;
     private final Map<String, String> messages;
     private final IDatabaseFetch databaseFetch;
     private IOnlineCheck onlineCheck;
-    private final Map<String, WaitingLink> waitingLinks = new HashMap<>();
+    // accessed from the JDA thread, async tasks and RedisBungee pub/sub: must be thread-safe
+    private final Map<String, WaitingLink> waitingLinks = new ConcurrentHashMap<>();
     private final List<DiscordRank> ranks;
     private final ICommonRunner runner;
     private final IConsoleExecutor consoleExecutor;
@@ -82,8 +85,8 @@ public class DiscordCommon {
     private final StopbotCommand stopbotCommand;
     private final JoinListener joinListener;
     private final ServerType serverType;
-    private int linkCount = 0;
-    private int allTimeLinkCount = 0;
+    private final AtomicInteger linkCount = new AtomicInteger();
+    private final AtomicInteger allTimeLinkCount = new AtomicInteger();
     private final boolean oneTimeReward;
     private final List<String> rewardCommand;
     private final List<String> unlinkCommandList;
@@ -144,8 +147,9 @@ public class DiscordCommon {
         this.sdf = new SimpleDateFormat(dataFormat);
         this.activity = activity;
         this.joinMessageDelay = joinMessageDelay;
-        this.refreshDelay = Math.min(1, refreshDelay);
-        this.boostDelay = Math.min(1, boostDelay);
+        this.refreshDelay = Math.max(1, refreshDelay);
+        // -1 means "length of the current month"
+        this.boostDelay = boostDelay == -1 ? -1 : Math.max(1, boostDelay);
         instance = this;
         this.databaseType = databaseType;
         this.credentials = credentials;
@@ -171,7 +175,7 @@ public class DiscordCommon {
                         new SQLiteCredentials(new File(dataFolder, (String) credentials.get("file")), (String) credentials.get("driver")),
                         (String) credentials.get("table"));
                 sqLiteHandler.createDefault();
-                databaseFetch = new SQLiteFetch(sqLiteHandler);
+                databaseFetch = new SqlFetch(sqLiteHandler);
                 break;
             }
             case MONGODB: {
@@ -193,13 +197,27 @@ public class DiscordCommon {
 
         this.redisEnabled = redisEnabled;
         if (redisEnabled) {
-            redisHandler = new RedisHandler((String) credentials.get("redis-host"), (int) credentials.get("redis-port"), (String) credentials.get("redis-password"));
+            redisHandler = new RedisHandler((String) credentials.get("redis-host"), (int) credentials.get("redis-port"), (String) credentials.get("redis-password"), (String) credentials.get("redis-secret"));
             redisHandler.init();
         } else {
             redisHandler = null;
         }
 
-        this.jda = JDABuilder.createDefault(token)
+        linkCount.set(databaseFetch.count());
+        allTimeLinkCount.set(databaseFetch.allTimeCount());
+
+        runner.runTask(new NonOverlappingTask("main proxy check", () -> {
+            if (redisBungee) {
+                RedisBungeeManager.updateMainProxy();
+            }
+        }), 100, 100);
+    }
+
+    /**
+     * Connects the Discord bot. Not called on standalone backends, which never talk to Discord directly.
+     */
+    public void startBot() throws InterruptedException {
+        JDA jda = JDABuilder.createDefault(token)
                 .enableIntents(GatewayIntent.GUILD_MEMBERS)
                 .setMemberCachePolicy(MemberCachePolicy.BOOSTER)
                 .setAutoReconnect(true)
@@ -228,7 +246,11 @@ public class DiscordCommon {
                 .addOption(OptionType.STRING, messages.get("name"), messages.get("discord-command-name"), true)
                 .queue(command -> logger.log(Level.INFO, command.getName() + " command added"));
         jda.awaitReady();
-        guild = jda.getGuildById(guildId);
+        Guild guild = jda.getGuildById(guildId);
+        if (guild == null) {
+            jda.shutdown();
+            throw new IllegalStateException("The bot is not in the guild " + guildId + ", please check guild-id in the config");
+        }
 
         for (DiscordRank rank : ranks) {
             Role role = guild.getRoleById(rank.getDiscordId());
@@ -238,64 +260,157 @@ public class DiscordCommon {
             }
             rank.setRole(role);
         }
-        linkCount = databaseFetch.count();
-        allTimeLinkCount = databaseFetch.allTimeCount();
+        this.jda = jda;
+        this.guild = guild;
+    }
 
-        runner.runTask(() -> {
-            if (redisBungee) {
-                RedisBungeeManager.updateMainProxy();
+    /**
+     * @return true when the bot is connected and can be used
+     */
+    public boolean isBotAvailable() {
+        JDA current = jda;
+        if (current == null || guild == null) return false;
+        JDA.Status status = current.getStatus();
+        return status != JDA.Status.SHUTTING_DOWN && status != JDA.Status.SHUTDOWN;
+    }
+
+    public void stopBot() {
+        JDA current = jda;
+        if (current != null) {
+            current.shutdown();
+        }
+    }
+
+    /**
+     * Releases every resource (bot, database, redis). Called when the plugin is disabled.
+     */
+    public void shutdown() {
+        stopBot();
+        try {
+            databaseFetch.close();
+        } catch (Exception ex) {
+            logger.log(Level.WARNING, "Error while closing the database: " + ex.getMessage());
+        }
+        if (redisHandler != null) {
+            try {
+                redisHandler.close();
+            } catch (Exception ex) {
+                logger.log(Level.WARNING, "Error while closing redis: " + ex.getMessage());
             }
-        }, 100, 100);
+        }
+    }
+
+    public int getLinkCount() {
+        return linkCount.get();
+    }
+
+    public int getAllTimeLinkCount() {
+        return allTimeLinkCount.get();
+    }
+
+    public void incrementLinkCount() {
+        linkCount.incrementAndGet();
+    }
+
+    public void decrementLinkCount() {
+        linkCount.decrementAndGet();
+    }
+
+    public void incrementAllTimeLinkCount() {
+        allTimeLinkCount.incrementAndGet();
+    }
+
+    public void addWaitingLink(String discordId, WaitingLink waitingLink) {
+        waitingLinks.put(discordId, waitingLink);
+        if (redisBungee) {
+            RedisBungeeManager.addWaitingLink(discordId, waitingLink);
+        }
+    }
+
+    /**
+     * @return true if this exact waiting link was still pending and is now consumed
+     */
+    public boolean removeWaitingLink(String discordId, WaitingLink waitingLink) {
+        boolean removed = waitingLinks.remove(discordId, waitingLink);
+        if (removed && redisBungee) {
+            RedisBungeeManager.removeWaitingLink(discordId);
+        }
+        return removed;
+    }
+
+    /**
+     * @return the approximate member (or online member) count of the guild, 0 if the bot is not available
+     */
+    public int retrieveMemberCount(boolean online) {
+        if (!isBotAvailable()) return 0;
+        return guild.retrieveMetaData()
+                .map(metaData -> online ? metaData.getApproximatePresences() : metaData.getApproximateMembers())
+                .onErrorMap((error) -> 0)
+                .complete();
+    }
+
+    private Member retrieveMember(String discordId) {
+        if (!isBotAvailable()) return null;
+        try {
+            return guild.retrieveMemberById(discordId).onErrorMap((error) -> null).complete();
+        } catch (Exception ex) {
+            return null;
+        }
     }
 
     public void addRole(String discordId, DiscordRank rank) {
-        if (standalone) {
-            if (redisBungee) {
-                RedisBungeeManager.addRole(discordId, rank);
-            }
-            return;
-        }
-        if (rank.getRole() == null) return;
-        Member member = guild.retrieveMemberById(discordId).onErrorMap((error) -> null).complete();
-        if (member == null) return;
-        if (member.getRoles().contains(rank.getRole())) return;
-        try {
-            guild.addRoleToMember(member, rank.getRole()).queue(
-                    (success) -> {
-
-                    }, (throwable) -> {
-                        logger.log(Level.WARNING, "error when adding roles of " + discordId + ": " + throwable.getMessage());
-                    }
-            );
-        } catch (InsufficientPermissionException | HierarchyException ex) {
-            if (ex instanceof InsufficientPermissionException) {
-                logger.log(Level.WARNING, "the bot has not the permission to manage roles");
-            }
-        }
+        syncRoles(discordId, Collections.singletonList(rank), Collections.emptyList());
     }
 
     public void removeRole(String discordId, DiscordRank rank) {
+        syncRoles(discordId, Collections.emptyList(), Collections.singletonList(rank));
+    }
+
+    /**
+     * Adds and removes roles of a member, fetching the member only once.
+     * Blocking: must be called asynchronously.
+     */
+    public void syncRoles(String discordId, Collection<DiscordRank> toAdd, Collection<DiscordRank> toRemove) {
         if (standalone) {
             if (redisBungee) {
-                RedisBungeeManager.removeRole(discordId, rank);
+                for (DiscordRank rank : toAdd) {
+                    RedisBungeeManager.addRole(discordId, rank);
+                }
+                for (DiscordRank rank : toRemove) {
+                    RedisBungeeManager.removeRole(discordId, rank);
+                }
             }
             return;
         }
-        if (rank.getRole() == null) return;
-        Member member = guild.retrieveMemberById(discordId).onErrorMap((error) -> null).complete();
+        if (toAdd.isEmpty() && toRemove.isEmpty()) return;
+        Member member = retrieveMember(discordId);
         if (member == null) return;
-        if (!member.getRoles().contains(rank.getRole())) return;
-        try {
-            guild.removeRoleFromMember(member, rank.getRole()).queue(
-                    (success) -> {
-
-                    }, (throwable) -> {
-                        logger.log(Level.WARNING, "error when removing roles of " + discordId + ": " + throwable.getMessage());
-                    }
-            );
-        } catch (InsufficientPermissionException | HierarchyException ex) {
-            if (ex instanceof InsufficientPermissionException) {
+        for (DiscordRank rank : toAdd) {
+            Role role = rank.getRole();
+            if (role == null || member.getRoles().contains(role)) continue;
+            try {
+                guild.addRoleToMember(member, role).queue(
+                        (success) -> {},
+                        (throwable) -> logger.log(Level.WARNING, "error when adding role " + role.getName() + " to " + discordId + ": " + throwable.getMessage())
+                );
+            } catch (InsufficientPermissionException ex) {
                 logger.log(Level.WARNING, "the bot has not the permission to manage roles");
+            } catch (HierarchyException ex) {
+                logger.log(Level.WARNING, "the bot can't give the role " + role.getName() + ": it is above the bot's highest role");
+            }
+        }
+        for (DiscordRank rank : toRemove) {
+            Role role = rank.getRole();
+            if (role == null || !member.getRoles().contains(role)) continue;
+            try {
+                guild.removeRoleFromMember(member, role).queue(
+                        (success) -> {},
+                        (throwable) -> logger.log(Level.WARNING, "error when removing role " + role.getName() + " from " + discordId + ": " + throwable.getMessage())
+                );
+            } catch (InsufficientPermissionException ex) {
+                logger.log(Level.WARNING, "the bot has not the permission to manage roles");
+            } catch (HierarchyException ex) {
+                logger.log(Level.WARNING, "the bot can't remove the role " + role.getName() + ": it is above the bot's highest role");
             }
         }
     }
@@ -321,15 +436,12 @@ public class DiscordCommon {
             ex.printStackTrace();
         }
 
-        databaseFetch.delete(discordId);
-        linkCount--;
+        if (databaseFetch.delete(discordId)) {
+            linkCount.decrementAndGet();
+        }
 
         if (removeRoles) {
-            runner.runAsync(() -> {
-                for (DiscordRank rank : ranks) {
-                    removeRole(discordId, rank);
-                }
-            });
+            runner.runAsync(() -> syncRoles(discordId, Collections.emptyList(), ranks));
         }
     }
 
@@ -341,8 +453,7 @@ public class DiscordCommon {
             return;
         }
         if (!rename) return;
-        if (guild == null) return;
-        Member member = guild.retrieveMemberById(discordId).onErrorMap((error) -> null).complete();
+        Member member = retrieveMember(discordId);
         if (member == null) return;
         try {
             member.modifyNickname(name).queue(
@@ -362,22 +473,18 @@ public class DiscordCommon {
     }
 
     public DiscordMember getMember(String id) {
-        try {
-            Member member = guild.retrieveMemberById(id).onErrorMap((error) -> null).complete();
-            if (member == null) return null;
-            return new DiscordMember(id, member.getEffectiveName(), member.isBoosting());
-        } catch (Exception ex) {
-            return null;
-        }
+        Member member = retrieveMember(id);
+        if (member == null) return null;
+        return new DiscordMember(id, member.getEffectiveName(), member.isBoosting());
     }
 
     public void getData(ICommonPlayer<?> player, PlayerDataCallback callback) {
-        String discord = DiscordCommon.getInstance().getDatabaseFetch().discord(player.getUniqueId());
+        String discord = databaseFetch.discord(player.getUniqueId());
         boolean linked = discord != null && !discord.isEmpty();
         String name = "none";
         boolean boosting = false;
         if (linked) {
-            DiscordMember member = DiscordCommon.getInstance().getMember(discord);
+            DiscordMember member = getMember(discord);
             if (member != null) {
                 name = member.getEffectiveName();
                 boosting = member.isBoosting();

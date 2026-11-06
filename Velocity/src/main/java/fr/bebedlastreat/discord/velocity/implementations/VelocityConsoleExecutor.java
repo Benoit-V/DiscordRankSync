@@ -13,7 +13,8 @@ public class VelocityConsoleExecutor implements IConsoleExecutor {
         if (command.startsWith("[FORWARD] ") && target != null) {
             command = command.substring(10);
             if (DiscordCommon.getInstance().isRedisEnabled()) {
-                DiscordCommon.getInstance().getRedisHandler().send(DiscordCommon.COMMAND_CHANNEL, command);
+                // signed with redis.secret, backends reject unsigned commands
+                DiscordCommon.getInstance().getRedisHandler().sendCommand(command);
             } else {
                 DiscordCommon.getLogger().log(Level.WARNING, "Redis is not enabled, can't forward command: " + command);
             }

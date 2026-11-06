@@ -7,13 +7,7 @@ import java.util.concurrent.TimeUnit;
 
 public class VelocityRunner implements ICommonRunner {
 
-    private Runnable buildTask(Runnable runnable) {
-        return () -> {
-            runnable.run();
-            Thread.currentThread().interrupt();
-        };
-    }
-
+    // Velocity has no main thread: "sync" code can run directly on the calling thread
     @Override
     public void run(Runnable runnable) {
         runnable.run();
@@ -21,16 +15,16 @@ public class VelocityRunner implements ICommonRunner {
 
     @Override
     public void runAsync(Runnable runnable) {
-        DiscordSyncVelocity.getServer().getScheduler().buildTask(DiscordSyncVelocity.getInstance(), buildTask(runnable)).schedule();
+        DiscordSyncVelocity.getServer().getScheduler().buildTask(DiscordSyncVelocity.getInstance(), runnable).schedule();
     }
 
     @Override
     public void runLater(Runnable runnable, int ticks) {
-        DiscordSyncVelocity.getServer().getScheduler().buildTask(DiscordSyncVelocity.getInstance(), buildTask(runnable)).delay(ticks* 50L, TimeUnit.MILLISECONDS).schedule();
+        DiscordSyncVelocity.getServer().getScheduler().buildTask(DiscordSyncVelocity.getInstance(), runnable).delay(ticks * 50L, TimeUnit.MILLISECONDS).schedule();
     }
 
     @Override
     public void runTask(Runnable runnable, int delay, int ticks) {
-        DiscordSyncVelocity.getServer().getScheduler().buildTask(DiscordSyncVelocity.getInstance(), buildTask(runnable)).delay(delay* 50L, TimeUnit.MILLISECONDS).repeat(ticks*50L, TimeUnit.MILLISECONDS).schedule();
+        DiscordSyncVelocity.getServer().getScheduler().buildTask(DiscordSyncVelocity.getInstance(), runnable).delay(delay * 50L, TimeUnit.MILLISECONDS).repeat(ticks * 50L, TimeUnit.MILLISECONDS).schedule();
     }
 }

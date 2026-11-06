@@ -17,6 +17,6 @@ public class SpigotStopbotCommand implements CommandExecutor {
     @Override
     public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
         common.getStopbotCommand().execute(new SpigotCommandSender(sender), args);
-        return false;
+        return true;
     }
 }

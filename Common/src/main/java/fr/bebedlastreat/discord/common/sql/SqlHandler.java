@@ -2,34 +2,23 @@ package fr.bebedlastreat.discord.common.sql;
 
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
-import lombok.Data;
 import lombok.Getter;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.util.function.Consumer;
-import java.util.function.Function;
-
-@Data
-public class SqlHandler {
+@Getter
+public class SqlHandler extends AbstractSqlHandler {
     public static final String DEFAULT_DRIVER = "com.mysql.jdbc.Driver";
 
     @Getter
     private static SqlHandler instance;
-    private SqlCredentials credentials;
-    private HikariDataSource dataSource;
-    private int maxPoolSize;
-    private int minIdle;
-    private long maxLifetime;
-    private long keepaliveTime;
-    private long connectionTimeout;
-    private final String table;
-    private final String allTimeTable;
-    private final String boostTable;
+    private final SqlCredentials credentials;
+    private final int maxPoolSize;
+    private final int minIdle;
+    private final long maxLifetime;
+    private final long keepaliveTime;
+    private final long connectionTimeout;
 
     public SqlHandler(SqlCredentials credentials, int maxPoolSize, int minIdle, long maxLifetime, long keepaliveTime, long connectionTimeout, String table) {
+        super(table);
         this.credentials = credentials;
         instance = this;
         this.maxPoolSize = maxPoolSize;
@@ -37,12 +26,10 @@ public class SqlHandler {
         this.maxLifetime = maxLifetime;
         this.keepaliveTime = keepaliveTime;
         this.connectionTimeout = connectionTimeout;
-        this.table = table;
-        this.allTimeTable = table + "_alltime";
-        this.boostTable = table + "_boost";
     }
 
-    private void setup() {
+    @Override
+    protected HikariDataSource createDataSource() {
         HikariConfig config = new HikariConfig();
         config.setDriverClassName(credentials.getDriver());
         config.setMaximumPoolSize(maxPoolSize);
@@ -54,90 +41,6 @@ public class SqlHandler {
         config.setJdbcUrl(credentials.toUrl());
         config.setUsername(credentials.getUser());
         config.setPassword(credentials.getPass());
-
-        dataSource = new HikariDataSource(config);
-    }
-
-    public void initPool() {
-        setup();
-    }
-
-    public void close() {
-        dataSource.close();
-    }
-
-    public Connection getConnection() throws SQLException {
-        if (dataSource == null) {
-            setup();
-        }
-        return dataSource.getConnection();
-    }
-
-
-    public void update(String qry, Object... objects){
-        try (Connection c = getConnection();
-             PreparedStatement s = c.prepareStatement(qry)) {
-            int i = 1;
-            for (Object object : objects) {
-                if (object instanceof String) {
-                    s.setString(i, (String) object);
-                } else if (object instanceof Long) {
-                    s.setLong(i, (Long) object);
-                } else if (object instanceof Integer) {
-                    s.setInt(i, (Integer) object);
-                } else if (object instanceof Double) {
-                    s.setDouble(i, (Double) object);
-                } else if (object instanceof Float) {
-                    s.setFloat(i, (Float) object);
-                } else if (object instanceof Byte) {
-                    s.setByte(i, (Byte) object);
-                } else if (object instanceof Short) {
-                    s.setShort(i, (Short) object);
-                } else if (object instanceof Boolean) {
-                    s.setBoolean(i, (Boolean) object);
-                } else {
-                    s.setObject(i, object);
-                }
-                i++;
-            }
-            s.executeUpdate();
-        } catch(Exception e){
-            e.printStackTrace();
-        }
-    }
-
-    public Object query(String qry, Function<ResultSet, Object> consumer) {
-        try (Connection c = getConnection();
-             PreparedStatement s = c.prepareStatement(qry);
-             ResultSet rs = s.executeQuery()) {
-            return consumer.apply(rs);
-        } catch (SQLException e) {
-            throw new IllegalStateException(e.getMessage());
-        }
-    }
-
-    public void query(String qry, Consumer<ResultSet> consumer) {
-        try (Connection c = getConnection();
-             PreparedStatement s = c.prepareStatement(qry);
-             ResultSet rs = s.executeQuery()) {
-            consumer.accept(rs);
-        } catch (SQLException e) {
-            throw new IllegalStateException(e.getMessage());
-        }
-    }
-
-    public void createDefault() {
-        update("CREATE TABLE IF NOT EXISTS " + table + "(" +
-                "uuid VARCHAR(64) PRIMARY KEY NOT NULL, " +
-                "name VARCHAR(32) NOT NULL," +
-                "discord VARCHAR(32) NOT NULL UNIQUE" +
-                ")");
-        update("CREATE TABLE IF NOT EXISTS " + allTimeTable + "(" +
-                "uuid VARCHAR(64) PRIMARY KEY NOT NULL" +
-                ")");
-        update("CREATE TABLE IF NOT EXISTS " + boostTable + "(" +
-                "uuid VARCHAR(64) PRIMARY KEY NOT NULL, " +
-                "finish_time BIGINT" +
-                ")");
+        return new HikariDataSource(config);
     }
 }

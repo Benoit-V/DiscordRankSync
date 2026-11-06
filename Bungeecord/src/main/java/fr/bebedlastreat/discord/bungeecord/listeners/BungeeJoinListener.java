@@ -26,7 +26,6 @@ public class BungeeJoinListener implements Listener {
     public void onJoin(PostLoginEvent e) {
         ProxiedPlayer player = e.getPlayer();
         common.getJoinListener().execute(new BungeePlayer(player));
-        if (common.isRedisBungee()) return;
         ProxyServer.getInstance().getScheduler().schedule(DiscordSyncBungee.getInstance(), () -> {
             ProxyServer.getInstance().getScheduler().runAsync(DiscordSyncBungee.getInstance(), () -> {
                 DiscordBungeePluginMessage.sendData(player);
@@ -37,7 +36,6 @@ public class BungeeJoinListener implements Listener {
     @EventHandler
     public void onServer(ServerConnectedEvent e) {
         ProxiedPlayer player = e.getPlayer();
-        if (common.isRedisBungee()) return;
         ProxyServer.getInstance().getScheduler().schedule(DiscordSyncBungee.getInstance(), () -> {
             ProxyServer.getInstance().getScheduler().runAsync(DiscordSyncBungee.getInstance(), () -> {
                 DiscordBungeePluginMessage.sendData(player);

@@ -7,10 +7,12 @@ import fr.bebedlastreat.discord.bungeecord.commands.BungeeUnlinkCommand;
 import fr.bebedlastreat.discord.bungeecord.implementations.BungeeConsoleExecutor;
 import fr.bebedlastreat.discord.bungeecord.implementations.BungeeOnlineCheck;
 import fr.bebedlastreat.discord.bungeecord.implementations.BungeeRunner;
+import fr.bebedlastreat.discord.bungeecord.implementations.BungeePlayer;
 import fr.bebedlastreat.discord.bungeecord.listeners.BungeeJoinListener;
 import fr.bebedlastreat.discord.bungeecord.listeners.RedisBungeeListener;
 import fr.bebedlastreat.discord.bungeecord.utils.DiscordBungeePluginMessage;
 import fr.bebedlastreat.discord.common.DiscordCommon;
+import fr.bebedlastreat.discord.common.utils.NonOverlappingTask;
 import fr.bebedlastreat.discord.common.charts.*;
 import fr.bebedlastreat.discord.common.enums.DatabaseType;
 import fr.bebedlastreat.discord.common.enums.ServerType;
@@ -118,6 +120,7 @@ public class DiscordSyncBungee extends Plugin {
             credentials.put("redis-host", getConfig().getString("redis.host"));
             credentials.put("redis-port", getConfig().getInt("redis.port"));
             credentials.put("redis-password", getConfig().getString("redis.password"));
+            credentials.put("redis-secret", getConfig().getString("redis.secret", ""));
         }
 
         Map<String, String> messages = new HashMap<>();
@@ -147,31 +150,38 @@ public class DiscordSyncBungee extends Plugin {
                         config.getInt("boost-delay", -1),
                         getDataFolder(),
                         redisEnabled);
-
-                PluginManager pluginManager = ProxyServer.getInstance().getPluginManager();
-                registerCommands(pluginManager);
-                pluginManager.registerListener(this, new BungeeJoinListener(common));
-
-                initMetrics();
-            } catch (InterruptedException e) {
-                DiscordCommon.getLogger().log(Level.SEVERE, "Failed to enable discord bot");
+                common.startBot();
+            } catch (Exception e) {
+                DiscordCommon.getLogger().log(Level.SEVERE, "Failed to enable discord bot: " + e.getMessage());
                 e.printStackTrace();
-            } finally {
-                DiscordCommon.getLogger().log(Level.INFO, "Discord bot successfully enabled");
+                if (common != null) {
+                    common.shutdown();
+                    common = null;
+                }
+                return;
             }
-            if (ProxyServer.getInstance().getPluginManager().getPlugin("RedisBungee") != null) {
+
+            PluginManager pluginManager = ProxyServer.getInstance().getPluginManager();
+            registerCommands(pluginManager);
+            pluginManager.registerListener(this, new BungeeJoinListener(common));
+            initMetrics();
+
+            if (pluginManager.getPlugin("RedisBungee") != null) {
                 DiscordCommon.getLogger().log(Level.INFO, "RedisBungee detected, start working with...");
                 RedisBungeeManager.init();
-                ProxyServer.getInstance().getPluginManager().registerListener(this, new RedisBungeeListener());
-            } else {
-                ProxyServer.getInstance().getScheduler().schedule(this, () -> {
-                    ProxyServer.getInstance().getScheduler().runAsync(this, () -> {
-                        for (ProxiedPlayer player : ProxyServer.getInstance().getPlayers()) {
-                            DiscordBungeePluginMessage.sendData(player);
-                        }
-                    });
-                }, common.getRefreshDelay(), TimeUnit.SECONDS);
+                pluginManager.registerListener(this, new RedisBungeeListener());
             }
+            // players who joined while the bot was starting
+            for (ProxiedPlayer player : ProxyServer.getInstance().getPlayers()) {
+                common.getJoinListener().execute(new BungeePlayer(player));
+            }
+            // repeating refresh of the data sent to the backend servers (PlaceholderAPI)
+            ProxyServer.getInstance().getScheduler().schedule(this, new NonOverlappingTask("player data refresh", () -> {
+                for (ProxiedPlayer player : ProxyServer.getInstance().getPlayers()) {
+                    DiscordBungeePluginMessage.sendData(player);
+                }
+            }), common.getRefreshDelay(), common.getRefreshDelay(), TimeUnit.SECONDS);
+            DiscordCommon.getLogger().log(Level.INFO, "Discord bot successfully enabled");
         });
     }
 
@@ -195,6 +205,9 @@ public class DiscordSyncBungee extends Plugin {
 
     @Override
     public void onDisable() {
+        if (common != null) {
+            common.shutdown();
+        }
         if(this.adventure == null) return;
         this.adventure.close();
         this.adventure = null;

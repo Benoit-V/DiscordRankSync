@@ -1,6 +1,9 @@
 package fr.bebedlastreat.discord.bukkit;
 
 import fr.bebedlastreat.discord.bukkit.commands.SpigotUnlinkCommand;
+import fr.bebedlastreat.discord.bukkit.implementations.SpigotPlayer;
+import org.bukkit.entity.Player;
+import redis.clients.jedis.JedisPubSub;
 import fr.bebedlastreat.discord.bukkit.implementations.SpigotConsoleExecutor;
 import fr.bebedlastreat.discord.bukkit.implementations.SpigotOnlineCheck;
 import fr.bebedlastreat.discord.bukkit.listeners.DiscordPluginMessageListener;
@@ -46,6 +49,8 @@ public class DiscordSyncBukkit extends JavaPlugin {
     private DiscordCommon common;
     private Metrics metrics;
     private BukkitAudiences adventure;
+    private DataPubSub dataPubSub;
+    private CommandPubSub commandPubSub;
 
     public @NonNull BukkitAudiences adventure() {
         if(this.adventure == null) {
@@ -108,6 +113,7 @@ public class DiscordSyncBukkit extends JavaPlugin {
             credentials.put("redis-host", redisSection.getString("host"));
             credentials.put("redis-port", redisSection.getInt("port"));
             credentials.put("redis-password", redisSection.getString("password"));
+            credentials.put("redis-secret", redisSection.getString("secret", ""));
         }
 
         Map<String, String> messages = new HashMap<>();
@@ -117,6 +123,7 @@ public class DiscordSyncBukkit extends JavaPlugin {
         }
 
         DiscordCommon.setLogger(new DefaultLogger(getLogger()));
+        boolean standalone = getConfig().getBoolean("standalone", false);
         Bukkit.getScheduler().runTaskAsynchronously(this, () -> {
             DiscordCommon.getLogger().log(Level.INFO, "Configurating the bot...");
             try {
@@ -137,47 +144,70 @@ public class DiscordSyncBukkit extends JavaPlugin {
                         getConfig().getInt("boost-delay", -1),
                         getDataFolder(),
                         redisEnabled);
-
-                boolean standalone = getConfig().getBoolean("standalone", false);
-
-                PluginManager pluginManager = Bukkit.getPluginManager();
-                if (!standalone) {
-                    registerCommands();
-                    pluginManager.registerEvents(new SpigotJoinListener(common), this);
-                    initMetrics();
-                } else {
-                    if (!redisEnabled) {
-                        for (int i = 0; i < 5; i++) {
-                            DiscordCommon.getLogger().log(Level.SEVERE, "Redis is not enabled, please enable it to use standalone mode");
-                        }
-                    }
-                    DiscordCommon.getLogger().log(Level.INFO, "Moving on standalone mode");
-                    common.getJda().shutdown();
+                if (standalone) {
+                    // standalone backends never connect the bot: the proxy does it
                     common.setStandalone(true);
-                    if (!redisEnabled) {
-                        getServer().getMessenger().registerIncomingPluginChannel(this, DiscordCommon.DATA_CHANNEL, new DiscordPluginMessageListener());
-                    } else {
-                        Bukkit.getScheduler().runTaskAsynchronously(this, () -> {
-                            common.getRedisHandler().subscribe(DiscordCommon.DATA_CHANNEL, new DataPubSub(common));
-                        });
-                        Bukkit.getScheduler().runTaskAsynchronously(this, () -> {
-                            common.getRedisHandler().subscribe(DiscordCommon.COMMAND_CHANNEL, new CommandPubSub(common));
-                        });
-                    }
+                } else {
+                    common.startBot();
                 }
-
-                Bukkit.getScheduler().runTask(this, () -> {
-                    if (pluginManager.getPlugin("PlaceholderAPI") != null) {
-                        DiscordPapi.init();
-                    }
-                });
-            } catch (InterruptedException e) {
-                DiscordCommon.getLogger().log(Level.SEVERE, "Failed to enable discord bot");
+            } catch (Exception e) {
+                DiscordCommon.getLogger().log(Level.SEVERE, "Failed to enable discord bot: " + e.getMessage());
                 e.printStackTrace();
-            } finally {
-                DiscordCommon.getLogger().log(Level.INFO, "Discord bot successfully enabled");
+                if (common != null) {
+                    common.shutdown();
+                    common = null;
+                }
+                return;
             }
+            // Bukkit API (commands, listeners, plugin channels) must be used from the main thread
+            Bukkit.getScheduler().runTask(this, () -> onBotReady(standalone, redisEnabled));
         });
+    }
+
+    private void onBotReady(boolean standalone, boolean redisEnabled) {
+        PluginManager pluginManager = Bukkit.getPluginManager();
+        if (!standalone) {
+            registerCommands();
+            pluginManager.registerEvents(new SpigotJoinListener(common), this);
+            initMetrics();
+            // players who joined while the bot was starting
+            for (Player player : Bukkit.getOnlinePlayers()) {
+                common.getJoinListener().execute(new SpigotPlayer(player));
+            }
+        } else {
+            if (!redisEnabled) {
+                for (int i = 0; i < 5; i++) {
+                    DiscordCommon.getLogger().log(Level.SEVERE, "Redis is not enabled, please enable it to use standalone mode");
+                }
+            }
+            DiscordCommon.getLogger().log(Level.INFO, "Moving on standalone mode");
+            if (!redisEnabled) {
+                getServer().getMessenger().registerIncomingPluginChannel(this, DiscordCommon.DATA_CHANNEL, new DiscordPluginMessageListener());
+            } else {
+                dataPubSub = new DataPubSub(common);
+                commandPubSub = new CommandPubSub(common);
+                Bukkit.getScheduler().runTaskAsynchronously(this, () -> {
+                    common.getRedisHandler().subscribe(DiscordCommon.DATA_CHANNEL, dataPubSub);
+                });
+                Bukkit.getScheduler().runTaskAsynchronously(this, () -> {
+                    common.getRedisHandler().subscribe(DiscordCommon.COMMAND_CHANNEL, commandPubSub);
+                });
+            }
+        }
+
+        if (pluginManager.getPlugin("PlaceholderAPI") != null) {
+            DiscordPapi.init();
+        }
+        DiscordCommon.getLogger().log(Level.INFO, "Discord bot successfully enabled");
+    }
+
+    private void unsubscribe(JedisPubSub pubSub) {
+        if (pubSub != null && pubSub.isSubscribed()) {
+            try {
+                pubSub.unsubscribe();
+            } catch (Exception ignored) {
+            }
+        }
     }
 
     private void registerCommands() {
@@ -200,6 +230,11 @@ public class DiscordSyncBukkit extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        unsubscribe(dataPubSub);
+        unsubscribe(commandPubSub);
+        if (common != null) {
+            common.shutdown();
+        }
         if(this.adventure == null) return;
         this.adventure.close();
         this.adventure = null;

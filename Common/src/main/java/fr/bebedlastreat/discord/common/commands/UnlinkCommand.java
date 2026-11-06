@@ -4,9 +4,8 @@ import fr.bebedlastreat.discord.common.DiscordCommon;
 import fr.bebedlastreat.discord.common.interfaces.ICommonCommand;
 import fr.bebedlastreat.discord.common.interfaces.ICommonCommandSender;
 import fr.bebedlastreat.discord.common.interfaces.ICommonPlayer;
-import fr.bebedlastreat.discord.common.objects.DiscordRank;
 
-import java.util.logging.Level;
+import java.util.Collections;
 
 public class UnlinkCommand implements ICommonCommand {
 
@@ -19,19 +18,15 @@ public class UnlinkCommand implements ICommonCommand {
     @Override
     public void execute(ICommonPlayer<?> player, String[] args) {
         common.getRunner().runAsync(() -> {
-            if (!common.getDatabaseFetch().exist(player.getUniqueId())) {
+            String discord = common.getDatabaseFetch().discord(player.getUniqueId());
+            if (discord.isEmpty() || !common.getDatabaseFetch().delete(player.getUniqueId())) {
                 common.getRunner().run(() -> {
                     player.sendMessage(common.getMessages().get("not-linked"));
                 });
                 return;
             }
-            String discord = common.getDatabaseFetch().discord(player.getUniqueId());
-            for (DiscordRank rank : common.getRanks()) {
-                common.removeRole(discord, rank);
-            }
-
-            common.getDatabaseFetch().delete(player.getUniqueId());
-            common.setLinkCount(common.getLinkCount() - 1);
+            common.decrementLinkCount();
+            common.syncRoles(discord, Collections.emptyList(), common.getRanks());
 
             if (!common.getUnlinkCommandList().isEmpty()) {
                 common.getRunner().runLater(() -> {

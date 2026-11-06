@@ -3,7 +3,6 @@ package fr.bebedlastreat.discord.bukkit.papi;
 import fr.bebedlastreat.discord.bukkit.implementations.SpigotPlayer;
 import fr.bebedlastreat.discord.common.DiscordCommon;
 import fr.bebedlastreat.discord.bukkit.DiscordSyncBukkit;
-import net.dv8tion.jda.api.entities.Guild;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.metadata.FixedMetadataValue;
@@ -28,7 +27,7 @@ public class PapiUpdateTask extends BukkitRunnable {
             });
         }
         if (!common.isStandalone()) {
-            DiscordPapi.setMemberCount(DiscordCommon.getInstance().getGuild().retrieveMetaData().map(metaData -> metaData.getApproximateMembers()).onErrorMap((error) -> 0).complete());
+            DiscordPapi.setMemberCount(common.retrieveMemberCount(false));
         }
     }
 }

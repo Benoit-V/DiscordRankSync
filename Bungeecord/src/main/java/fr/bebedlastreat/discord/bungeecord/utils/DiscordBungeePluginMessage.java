@@ -4,12 +4,12 @@ import com.google.common.io.ByteArrayDataOutput;
 import com.google.common.io.ByteStreams;
 import fr.bebedlastreat.discord.bungeecord.implementations.BungeePlayer;
 import fr.bebedlastreat.discord.common.DiscordCommon;
+import fr.bebedlastreat.discord.common.redis.PlayerDataCodec;
 import lombok.experimental.UtilityClass;
 import net.md_5.bungee.api.config.ServerInfo;
 import net.md_5.bungee.api.connection.ProxiedPlayer;
 import net.md_5.bungee.api.connection.Server;
 
-import java.nio.charset.StandardCharsets;
 import java.util.logging.Level;
 
 @UtilityClass
@@ -34,13 +34,7 @@ public class DiscordBungeePluginMessage {
         DiscordCommon.getInstance().getData(new BungeePlayer(player), (linked, discordName, boosting) -> {
             DiscordBungeePluginMessage.sendData(player, linked, discordName, boosting);
             if (DiscordCommon.getInstance().isRedisEnabled()) {
-                ByteArrayDataOutput out = ByteStreams.newDataOutput();
-                out.writeUTF(player.getUniqueId().toString());
-                out.writeBoolean(linked);
-                out.writeUTF(discordName);
-                out.writeBoolean(boosting);
-                byte[] bytes = out.toByteArray();
-                String message = new String(bytes, StandardCharsets.UTF_8);
+                String message = PlayerDataCodec.encode(player.getUniqueId(), linked, discordName, boosting);
                 DiscordCommon.getInstance().getRedisHandler().send(DiscordCommon.DATA_CHANNEL, message);
             }
         });

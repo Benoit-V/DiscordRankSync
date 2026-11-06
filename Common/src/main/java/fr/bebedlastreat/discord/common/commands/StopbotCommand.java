@@ -19,7 +19,7 @@ public class StopbotCommand implements ICommonCommand {
 
     @Override
     public void execute(ICommonCommandSender<?> sender, String[] args) {
-        common.getJda().shutdown();
+        common.stopBot();
         sender.sendMessage(common.getMessages().get("stop-bot"));
     }
 }

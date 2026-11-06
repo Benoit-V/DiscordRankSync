@@ -12,6 +12,7 @@ public class BungeeStopbotCommand extends Command {
     public BungeeStopbotCommand(DiscordCommon common) {
         super("stopbot", "discord.stopbot", "stopdiscord");
         this.common = common;
+
     }
 
     @Override

@@ -4,7 +4,10 @@ import java.util.UUID;
 
 public interface IDatabaseFetch {
 
-    void insert(UUID uuid, String name, String discord);
+    /**
+     * @return true if the link was stored
+     */
+    boolean insert(UUID uuid, String name, String discord);
 
     void update(UUID uuid, String name);
 
@@ -12,9 +15,15 @@ public interface IDatabaseFetch {
 
     void insertFirstLink(UUID uuid);
 
-    void delete(UUID uuid);
+    /**
+     * @return true if a link was deleted
+     */
+    boolean delete(UUID uuid);
 
-    void delete(String discord);
+    /**
+     * @return true if a link was deleted
+     */
+    boolean delete(String discord);
 
     boolean exist(String discord);
 
@@ -39,4 +48,6 @@ public interface IDatabaseFetch {
     boolean canBoost(UUID uuid);
 
     long getNextBoost(UUID uuid);
+
+    void close();
 }

@@ -57,6 +57,9 @@ redis:
   host: "127.0.0.1"
   port: 6379
   password: ""
+  # shared secret used to sign the commands forwarded with [FORWARD] from the proxy to the spigot servers
+  # set the SAME long random value on the proxy and on every spigot server; leave empty to disable command forwarding
+  secret: ""
 
 # fill this is you chose MySQL as database
 sql:
@@ -108,6 +111,8 @@ messages:
   you-already-link: "<red>Your Minecraft account is already linked to a Discord account.</red>"
   link-success: "<green>Your Minecraft account has been successfully linked to your Discord account!\nTo receive your Discord roles, simply log out and log back in.</green>"
   invalid-code: "<rainbow>Invalid code!</rainbow>"
+  link-error: "<red>An error occurred while linking your account, please try again later.</red>"
+  discord-already-linked: "<red>This Discord account is already linked to a Minecraft account.</red>"
   no-link: "<red>You haven't attempted to link your Minecraft account to your Discord account in the last 5 minutes.</red>"
   not-linked: "<red>Your Minecraft account is not linked to a Discord account.</red>"
   unlink-success: "<green>Your Minecraft account has been successfully unlinked from your Discord account!</green>"

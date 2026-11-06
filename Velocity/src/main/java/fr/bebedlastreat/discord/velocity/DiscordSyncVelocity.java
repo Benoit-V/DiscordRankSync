@@ -5,6 +5,7 @@ import com.velocitypowered.api.command.CommandManager;
 import com.velocitypowered.api.command.CommandMeta;
 import com.velocitypowered.api.event.EventManager;
 import com.velocitypowered.api.event.Subscribe;
+import com.velocitypowered.api.event.proxy.ProxyShutdownEvent;
 import com.velocitypowered.api.event.proxy.ProxyInitializeEvent;
 import com.velocitypowered.api.plugin.Dependency;
 import com.velocitypowered.api.plugin.Plugin;
@@ -14,6 +15,7 @@ import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.proxy.messages.MinecraftChannelIdentifier;
 import fr.bebedlastreat.discord.common.DiscordCommon;
+import fr.bebedlastreat.discord.common.utils.NonOverlappingTask;
 import fr.bebedlastreat.discord.common.charts.*;
 import fr.bebedlastreat.discord.common.enums.DatabaseType;
 import fr.bebedlastreat.discord.common.enums.ServerType;
@@ -30,6 +32,7 @@ import fr.bebedlastreat.discord.velocity.commands.VelocityUnlinkCommand;
 import fr.bebedlastreat.discord.velocity.implementations.VelocityConsoleExecutor;
 import fr.bebedlastreat.discord.velocity.implementations.VelocityOnlineCheck;
 import fr.bebedlastreat.discord.velocity.implementations.VelocityRunner;
+import fr.bebedlastreat.discord.velocity.implementations.VelocityPlayer;
 import fr.bebedlastreat.discord.velocity.listeners.RedisBungeeListener;
 import fr.bebedlastreat.discord.velocity.listeners.VelocityJoinListener;
 import fr.bebedlastreat.discord.velocity.squishyyaml.ConfigurationSection;
@@ -135,6 +138,7 @@ public class DiscordSyncVelocity {
             credentials.put("redis-host", getConfig().getString("redis.host"));
             credentials.put("redis-port", getConfig().getInteger("redis.port"));
             credentials.put("redis-password", getConfig().getString("redis.password"));
+            credentials.put("redis-secret", getConfig().getString("redis.secret", ""));
         }
 
         Map<String, String> messages = new HashMap<>();
@@ -164,31 +168,47 @@ public class DiscordSyncVelocity {
                         config.getInteger("boost-delay", -1),
                         getDataDirectory().toFile(),
                         redisEnabled);
-
-                EventManager eventManager = server.getEventManager();
-                CommandManager commandManager = server.getCommandManager();
-                registerCommands(commandManager);
-                eventManager.register(this, new VelocityJoinListener(common));
-
-                initMetrics();
-            } catch (InterruptedException e) {
-                DiscordCommon.getLogger().log(Level.SEVERE, "Failed to enable discord bot");
+                common.startBot();
+            } catch (Exception e) {
+                DiscordCommon.getLogger().log(Level.SEVERE, "Failed to enable discord bot: " + e.getMessage());
                 e.printStackTrace();
-            } finally {
-                DiscordCommon.getLogger().log(Level.INFO, "Discord bot successfully enabled");
+                if (common != null) {
+                    common.shutdown();
+                    common = null;
+                }
+                return;
             }
+
+            EventManager eventManager = server.getEventManager();
+            CommandManager commandManager = server.getCommandManager();
+            registerCommands(commandManager);
+            eventManager.register(this, new VelocityJoinListener(common));
+            initMetrics();
+
             if (server.getPluginManager().getPlugin("redisbungee").isPresent()) {
                 DiscordCommon.getLogger().log(Level.INFO, "RedisBungee detected, start working with...");
                 RedisBungeeManager.init();
-                server.getEventManager().register(this, new RedisBungeeListener());
-            } else {
-                server.getScheduler().buildTask(this, () -> {
-                    for (Player player : server.getAllPlayers()) {
-                        DiscordVelocityPluginMessage.sendData(player);
-                    }
-                }).repeat(common.getRefreshDelay(), TimeUnit.SECONDS).schedule();
+                eventManager.register(this, new RedisBungeeListener());
             }
+            // players who joined while the bot was starting
+            for (Player player : server.getAllPlayers()) {
+                common.getJoinListener().execute(new VelocityPlayer(player));
+            }
+            // repeating refresh of the data sent to the backend servers (PlaceholderAPI)
+            server.getScheduler().buildTask(this, new NonOverlappingTask("player data refresh", () -> {
+                for (Player player : server.getAllPlayers()) {
+                    DiscordVelocityPluginMessage.sendData(player);
+                }
+            })).delay(common.getRefreshDelay(), TimeUnit.SECONDS).repeat(common.getRefreshDelay(), TimeUnit.SECONDS).schedule();
+            DiscordCommon.getLogger().log(Level.INFO, "Discord bot successfully enabled");
         }).schedule();
+    }
+
+    @Subscribe
+    public void onDisable(ProxyShutdownEvent event) {
+        if (common != null) {
+            common.shutdown();
+        }
     }
 
     private void registerCommands(CommandManager commandManager) {

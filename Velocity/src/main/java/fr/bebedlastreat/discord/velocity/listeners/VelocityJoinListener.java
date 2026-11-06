@@ -23,7 +23,6 @@ public class VelocityJoinListener {
     public void onJoin(PostLoginEvent e) {
         Player player = e.getPlayer();
         common.getJoinListener().execute(new VelocityPlayer(player));
-        if (common.isRedisBungee()) return;
         DiscordSyncVelocity.getServer().getScheduler().buildTask(DiscordSyncVelocity.getInstance(), () -> {
             DiscordVelocityPluginMessage.sendData(player);
         }).delay(100, TimeUnit.MILLISECONDS).schedule();
@@ -32,7 +31,6 @@ public class VelocityJoinListener {
     @Subscribe
     public void onServer(ServerConnectedEvent e) {
         Player player = e.getPlayer();
-        if (common.isRedisBungee()) return;
         DiscordSyncVelocity.getServer().getScheduler().buildTask(DiscordSyncVelocity.getInstance(), () -> {
             DiscordVelocityPluginMessage.sendData(player);
         }).delay(100, TimeUnit.MILLISECONDS).schedule();

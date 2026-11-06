@@ -6,10 +6,10 @@ import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ServerConnection;
 import com.velocitypowered.api.proxy.messages.MinecraftChannelIdentifier;
 import fr.bebedlastreat.discord.common.DiscordCommon;
+import fr.bebedlastreat.discord.common.redis.PlayerDataCodec;
 import fr.bebedlastreat.discord.velocity.implementations.VelocityPlayer;
 import lombok.experimental.UtilityClass;
 
-import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 import java.util.logging.Level;
 
@@ -34,13 +34,7 @@ public class DiscordVelocityPluginMessage {
         DiscordCommon.getInstance().getData(new VelocityPlayer(player), (linked, discordName, boosting) -> {
             DiscordVelocityPluginMessage.sendData(player, linked, discordName, boosting);
             if (DiscordCommon.getInstance().isRedisEnabled()) {
-                ByteArrayDataOutput out = ByteStreams.newDataOutput();
-                out.writeUTF(player.getUniqueId().toString());
-                out.writeBoolean(linked);
-                out.writeUTF(discordName);
-                out.writeBoolean(boosting);
-                byte[] bytes = out.toByteArray();
-                String message = new String(bytes, StandardCharsets.UTF_8);
+                String message = PlayerDataCodec.encode(player.getUniqueId(), linked, discordName, boosting);
                 DiscordCommon.getInstance().getRedisHandler().send(DiscordCommon.DATA_CHANNEL, message);
             }
         });

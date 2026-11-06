@@ -1,16 +1,14 @@
 package fr.bebedlastreat.discord.bukkit.pubsub;
 
-import com.google.common.io.ByteArrayDataInput;
-import com.google.common.io.ByteStreams;
 import fr.bebedlastreat.discord.bukkit.DiscordSyncBukkit;
 import fr.bebedlastreat.discord.common.DiscordCommon;
+import fr.bebedlastreat.discord.common.redis.PlayerDataCodec;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.metadata.FixedMetadataValue;
 import redis.clients.jedis.JedisPubSub;
 
-import java.nio.charset.StandardCharsets;
-import java.util.UUID;
+import java.util.logging.Level;
 
 public class DataPubSub extends JedisPubSub {
 
@@ -23,16 +21,22 @@ public class DataPubSub extends JedisPubSub {
     @Override
     public void onMessage(String channel, String message) {
         if (DiscordCommon.DATA_CHANNEL.equals(channel)) {
-            byte[] bytes = message.getBytes(StandardCharsets.UTF_8);
-
-            ByteArrayDataInput in = ByteStreams.newDataInput(bytes);
-            Player player = Bukkit.getPlayer(UUID.fromString(in.readUTF()));
-            if (player == null) {
+            PlayerDataCodec.PlayerData data;
+            try {
+                data = PlayerDataCodec.decode(message);
+            } catch (IllegalArgumentException ex) {
+                DiscordCommon.getLogger().log(Level.WARNING, "Received invalid player data from redis: " + ex.getMessage());
                 return;
             }
-            player.setMetadata("discord_linked", new FixedMetadataValue(DiscordSyncBukkit.getInstance(), in.readBoolean()));
-            player.setMetadata("discord_name", new FixedMetadataValue(DiscordSyncBukkit.getInstance(), in.readUTF()));
-            player.setMetadata("discord_boosting", new FixedMetadataValue(DiscordSyncBukkit.getInstance(), in.readBoolean()));
+            Bukkit.getScheduler().runTask(DiscordSyncBukkit.getInstance(), () -> {
+                Player player = Bukkit.getPlayer(data.getUuid());
+                if (player == null) {
+                    return;
+                }
+                player.setMetadata("discord_linked", new FixedMetadataValue(DiscordSyncBukkit.getInstance(), data.isLinked()));
+                player.setMetadata("discord_name", new FixedMetadataValue(DiscordSyncBukkit.getInstance(), data.getDiscordName()));
+                player.setMetadata("discord_boosting", new FixedMetadataValue(DiscordSyncBukkit.getInstance(), data.isBoosting()));
+            });
 
         }
     }

@@ -1,11 +1,14 @@
 package fr.bebedlastreat.discord.common.mongodb;
 
+import com.mongodb.MongoException;
 import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.Updates;
 import fr.bebedlastreat.discord.common.interfaces.IDatabaseFetch;
+import fr.bebedlastreat.discord.common.DiscordCommon;
 import org.bson.Document;
 
 import java.util.UUID;
+import java.util.logging.Level;
 
 public class MongoDBFetch implements IDatabaseFetch {
 
@@ -16,11 +19,23 @@ public class MongoDBFetch implements IDatabaseFetch {
     }
 
     @Override
-    public void insert(UUID uuid, String name, String discord) {
+    public boolean insert(UUID uuid, String name, String discord) {
         Document doc = new Document("uuid", uuid.toString())
                 .append("name", name)
                 .append("discord", discord);
-        mongodb.getBaseCollection().insertOne(doc);
+        try {
+            mongodb.getBaseCollection().insertOne(doc);
+            return true;
+        } catch (MongoException e) {
+            DiscordCommon.getLogger().log(Level.SEVERE, "MongoDB insert failed: " + e.getMessage());
+            return false;
+        }
+    }
+
+    private static String field(Document doc, String key) {
+        if (doc == null) return "";
+        String value = doc.getString(key);
+        return value == null ? "" : value;
     }
 
     @Override
@@ -43,47 +58,43 @@ public class MongoDBFetch implements IDatabaseFetch {
     }
 
     @Override
-    public void delete(UUID uuid) {
-        mongodb.getBaseCollection().deleteOne(Filters.eq("uuid", uuid.toString()));
+    public boolean delete(UUID uuid) {
+        return mongodb.getBaseCollection().deleteOne(Filters.eq("uuid", uuid.toString())).getDeletedCount() > 0;
     }
 
     @Override
-    public void delete(String discord) {
-        mongodb.getBaseCollection().deleteOne(Filters.eq("discord", discord));
+    public boolean delete(String discord) {
+        return mongodb.getBaseCollection().deleteOne(Filters.eq("discord", discord)).getDeletedCount() > 0;
     }
 
     @Override
     public boolean exist(String discord) {
-        return uuid(discord).length() > 0;
+        return !uuid(discord).isEmpty();
     }
 
     @Override
     public boolean exist(UUID uuid) {
-        return discord(uuid).length() > 0;
+        return !discord(uuid).isEmpty();
     }
 
     @Override
     public String discord(UUID uuid) {
-        Document doc = mongodb.getBaseCollection().find(Filters.eq("uuid", uuid.toString())).first();
-        return doc != null ? doc.getString("discord") : "";
+        return field(mongodb.getBaseCollection().find(Filters.eq("uuid", uuid.toString())).first(), "discord");
     }
 
     @Override
     public String discord(String name) {
-        Document doc = mongodb.getBaseCollection().find(Filters.eq("name", name)).first();
-        return doc != null ? doc.getString("discord") : "";
+        return field(mongodb.getBaseCollection().find(Filters.eq("name", name)).first(), "discord");
     }
 
     @Override
     public String uuid(String discord) {
-        Document doc = mongodb.getBaseCollection().find(Filters.eq("discord", discord)).first();
-        return doc != null ? doc.getString("uuid") : "";
+        return field(mongodb.getBaseCollection().find(Filters.eq("discord", discord)).first(), "uuid");
     }
 
     @Override
     public String name(UUID uuid) {
-        Document doc = mongodb.getBaseCollection().find(Filters.eq("uuid", uuid.toString())).first();
-        return doc != null ? doc.getString("name") : "";
+        return field(mongodb.getBaseCollection().find(Filters.eq("uuid", uuid.toString())).first(), "name");
     }
 
     @Override
@@ -112,13 +123,20 @@ public class MongoDBFetch implements IDatabaseFetch {
     public boolean canBoost(UUID uuid) {
         Document doc = mongodb.getBoostCollection().find(Filters.eq("uuid", uuid.toString())).first();
         if (doc == null) return true;
-        long time = doc.getLong("finish_time");
-        return System.currentTimeMillis() > time;
+        Number time = doc.get("finish_time", Number.class);
+        return time == null || System.currentTimeMillis() > time.longValue();
     }
 
     @Override
     public long getNextBoost(UUID uuid) {
         Document doc = mongodb.getBoostCollection().find(Filters.eq("uuid", uuid.toString())).first();
-        return doc != null ? doc.getLong("finish_time") : 0;
+        if (doc == null) return 0;
+        Number time = doc.get("finish_time", Number.class);
+        return time == null ? 0 : time.longValue();
+    }
+
+    @Override
+    public void close() {
+        mongodb.closeConnection();
     }
 }

@@ -45,7 +45,7 @@ public class RedisBungeeManager {
                 case ADD_ROLE:
                 case REMOVE_ROLE: {
                     if (isMainProxy()) {
-                        RoleData data = gson.fromJson(pubSubMessage.getContent().toString(), RoleData.class);
+                        RoleData data = gson.fromJson(gson.toJsonTree(pubSubMessage.getContent()), RoleData.class);
                         for (DiscordRank rank : common.getRanks()) {
                             if (rank.getDiscordId().equalsIgnoreCase(data.getRankId())) {
                                 if (pubSubMessage.getMessageType() == MessageType.ADD_ROLE) {
@@ -61,20 +61,20 @@ public class RedisBungeeManager {
                 }
                 case RENAME: {
                     if (isMainProxy()) {
-                        RenameData data = gson.fromJson(pubSubMessage.getContent().toString(), RenameData.class);
+                        RenameData data = gson.fromJson(gson.toJsonTree(pubSubMessage.getContent()), RenameData.class);
                         common.rename(data.getDiscordId(), data.getName());
                     }
                     break;
                 }
                 case ADD_WAITING_LINK: {
-                    WaitingLinkData data = gson.fromJson(pubSubMessage.getContent().toString(), WaitingLinkData.class);
+                    WaitingLinkData data = gson.fromJson(gson.toJsonTree(pubSubMessage.getContent()), WaitingLinkData.class);
                     if (!data.getProxy().equals(redisBungeeAPI.getProxyId())) {
                         common.getWaitingLinks().put(data.getId(), data.getWaitingLink());
                     }
                     break;
                 }
                 case REMOVE_WAITING_LINK: {
-                    WaitingLinkData data = gson.fromJson(pubSubMessage.getContent().toString(), WaitingLinkData.class);
+                    WaitingLinkData data = gson.fromJson(gson.toJsonTree(pubSubMessage.getContent()), WaitingLinkData.class);
                     if (!data.getProxy().equals(redisBungeeAPI.getProxyId())) {
                         common.getWaitingLinks().remove(data.getId());
                     }
