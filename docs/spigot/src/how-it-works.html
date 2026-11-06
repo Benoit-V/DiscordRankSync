@@ -1,0 +1,70 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="style.css"><script src="pixels.js"></script>
+<style>
+  body { width: 1200px; height: 400px; }
+  .frame { width: 1200px; height: 400px; padding: 40px 44px; display: flex; flex-direction: column; }
+  .steps { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 26px; flex: 1; position: relative; z-index: 1; }
+  .step { padding: 22px 22px 24px; display: flex; flex-direction: column; position: relative; }
+  .num {
+    width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center;
+    font: 700 20px "Space Grotesk"; color: #0f1117; margin-bottom: 14px;
+  }
+  .where { position: absolute; top: 26px; right: 22px; }
+  h3 { font: 700 23px "Space Grotesk"; margin-bottom: 8px; }
+  p { font: 400 15px/1.45 "Inter"; color: var(--muted); margin-bottom: 16px; }
+  .term {
+    margin-top: auto; background: #0b0d12; border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px;
+    font: 500 15px/1.5 "JetBrains Mono";
+  }
+  .cmd { color: var(--text); }
+  .cmd b { color: var(--blurple-2); }
+  .mc b { color: var(--grass-2); }
+  .reply { color: var(--muted); font-size: 13px; }
+  .code { color: var(--gold); font-weight: 700; }
+  .arrow { position: absolute; top: 50%; right: -24px; width: 22px; height: 22px; margin-top: -11px; color: #4a5368; z-index: 2; }
+  .roles { display: flex; gap: 6px; flex-wrap: wrap; }
+  .roles .chip { font-size: 12px; padding: 4px 10px; }
+</style></head>
+<body>
+<div class="frame">
+  <div class="steps">
+    <div class="card step">
+      <div class="num" style="background:var(--blurple-2)">1</div>
+      <div class="where label">DISCORD</div>
+      <h3>Ask for a link</h3>
+      <p>While connected to the server, the player runs the slash command with their Minecraft name.</p>
+      <div class="term">
+        <div class="cmd"><b>/link</b> Kaelan</div>
+        <div class="reply">→ bot: use <span class="code">/link 482913</span> in game</div>
+      </div>
+      <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    </div>
+
+    <div class="card step">
+      <div class="num" style="background:var(--grass-2)">2</div>
+      <div class="where label">IN GAME</div>
+      <h3>Confirm in game</h3>
+      <p>They type the private code within 5 minutes. Reward commands run on the first link.</p>
+      <div class="term mc">
+        <div class="cmd"><b>/link</b> 482913</div>
+        <div class="reply" style="color:var(--grass-2)">✔ Account linked!</div>
+      </div>
+      <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    </div>
+
+    <div class="card step">
+      <div class="num" style="background:var(--gold)">3</div>
+      <div class="where label">AUTOMATIC</div>
+      <h3>Roles stay in sync</h3>
+      <p>On every join, Discord roles follow the player's permissions and their nickname is updated.</p>
+      <div class="term">
+        <div class="roles">
+          <span class="chip"><span class="dot" style="background:var(--gold)"></span>VIP</span>
+          <span class="chip"><span class="dot" style="background:var(--grass)"></span>Member</span>
+          <span class="chip" style="opacity:.45;text-decoration:line-through"><span class="dot" style="background:var(--red)"></span>Guest</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body></html>

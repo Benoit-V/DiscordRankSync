@@ -1,0 +1,26 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="style.css"><script src="icons.js"></script>
+<style>
+  body { width: 1200px; height: 96px; }
+  .frame { width: 1200px; height: 96px; border-radius: 18px; display: flex; align-items: center; gap: 20px; padding: 0 28px; }
+  .ic {
+    width: 56px; height: 56px; border-radius: 14px; display: grid; place-items: center; flex: none; position: relative; z-index: 1;
+    background: linear-gradient(135deg, var(--blurple), var(--grass)); color: #fff;
+  }
+  h2 { font-size: 38px; position: relative; z-index: 1; }
+  .bar { flex: 1; height: 2px; background: linear-gradient(90deg, rgba(123,134,255,.6), rgba(143,209,106,0)); position: relative; z-index: 1; }
+  .tag { position: relative; z-index: 1; }
+</style></head>
+<body>
+<div class="frame">
+  <div class="ic" id="ic"></div>
+  <h2 class="display" id="title"></h2>
+  <div class="bar"></div>
+  <span class="label tag">DISCORDRANKSYNC</span>
+</div>
+<script>
+  const q = new URLSearchParams(location.search);
+  document.getElementById("title").textContent = q.get("t") || "Section";
+  document.getElementById("ic").innerHTML = icon(q.get("i") || "star", 28, "#fff", 2.2);
+</script>
+</body></html>

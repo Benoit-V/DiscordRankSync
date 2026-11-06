@@ -1,0 +1,116 @@
+[CENTER][IMG]https://raw.githubusercontent.com/Benoit-V/DiscordRankSync/master/docs/spigot/banner.png[/IMG]
+
+[SIZE=5][B]Turn your in-game ranks into Discord roles — automatically.[/B][/SIZE]
+Players link their Minecraft and Discord accounts in seconds, and their roles and nickname stay in sync on every join.
+[B]Spigot / Paper • BungeeCord • Velocity[/B]
+
+[URL='https://github.com/Benoit-V/DiscordRankSync/releases/latest/download/DiscordRankSync.jar'][B]⬇ Download the latest version[/B][/URL]  •  [URL='https://github.com/Benoit-V/DiscordRankSync']Source code[/URL]  •  [URL='https://bebedlastreat.fr/discord']Support Discord[/URL][/CENTER]
+
+[IMG]https://raw.githubusercontent.com/Benoit-V/DiscordRankSync/master/docs/spigot/header-features.png[/IMG]
+[IMG]https://raw.githubusercontent.com/Benoit-V/DiscordRankSync/master/docs/spigot/features.png[/IMG]
+
+[LIST]
+[*][B]Rank → role sync[/B]: every configured Discord role follows a permission (works with LuckPerms or any permission plugin). Roles are added and removed on each join.
+[*][B]Nickname sync[/B]: linked members are renamed to their Minecraft name on Discord.
+[*][B]Link rewards[/B]: run console commands when a player links (only on the very first link, or every time).
+[*][B]Booster rewards[/B]: server boosters claim a reward in game with [I]/claimboost[/I], once a month or every X days.
+[*][B]Clean unlinking[/B]: roles are removed on unlink, unlink commands are run, and members who leave the Discord server can be unlinked automatically.
+[*][B]PlaceholderAPI[/B] support on your Spigot servers, even behind a proxy.
+[*][B]Storage[/B]: SQLite (zero setup), MySQL / MariaDB or MongoDB.
+[*][B]Networks[/B]: run it on your proxy, share data with your backends through plugin messages or Redis, and use several proxies with RedisBungee.
+[*]Fully customizable messages with [URL='https://docs.advntr.dev/minimessage/format.html']MiniMessage[/URL] (gradients, colors…).
+[/LIST]
+
+[IMG]https://raw.githubusercontent.com/Benoit-V/DiscordRankSync/master/docs/spigot/header-how.png[/IMG]
+[IMG]https://raw.githubusercontent.com/Benoit-V/DiscordRankSync/master/docs/spigot/how-it-works.png[/IMG]
+
+[LIST=1]
+[*]While connected to the Minecraft server, the player runs [I]/link <minecraft name>[/I] on Discord.
+[*]The bot privately sends a 6-digit code. The player types [I]/link <code>[/I] in game within 5 minutes.
+[*]The accounts are linked: link rewards run, the nickname is updated, and the roles are given the next time the player joins.
+[/LIST]
+
+[IMG]https://raw.githubusercontent.com/Benoit-V/DiscordRankSync/master/docs/spigot/header-setup.png[/IMG]
+
+[LIST=1]
+[*]Go to the [URL='https://discord.com/developers/applications']Discord Developer Portal[/URL] and create a new application.
+[*]In the [B]Bot[/B] section, copy the token (you may have to reset it) and [B]enable the Server Members Intent[/B].
+[*]Invite the bot to your server with the [I]bot[/I] and [I]applications.commands[/I] scopes and the [B]Manage Roles[/B] and [B]Manage Nicknames[/B] permissions.
+[*][B]Move the bot's role above every role it has to give[/B] in your server settings. Discord does not let a bot give a role above its own.
+[*]Put the jar in your [I]plugins[/I] folder (on your proxy if you have a network) and start the server once to generate [I]config.yml[/I].
+[*]Fill in [I]bot-token[/I], [I]guild-id[/I] (right-click your server with Developer Mode enabled → Copy Server ID) and your [I]ranks[/I], then restart.
+[/LIST]
+
+[SPOILER="Minimal configuration example"]
+[CODE=YAML]bot-token: "your-bot-token"
+guild-id: "123456789012345678"
+rename: true
+
+ranks:
+  vip:
+    id: "234567890123456789"      # Discord role id
+    permission: "group.vip"       # permission the player needs in game
+  member:
+    id: "345678901234567890"
+    permission: "group.default"
+
+database: "SQLite"                # SQLite, MySQL/MariaDB or MongoDB
+
+one-time-reward: true
+reward-command: ["eco give {player} 500"]
+boost-reward: ["crate key give {player} booster 1"][/CODE]
+[/SPOILER]
+
+[IMG]https://raw.githubusercontent.com/Benoit-V/DiscordRankSync/master/docs/spigot/header-commands.png[/IMG]
+
+[B]Discord (slash commands)[/B]
+[LIST]
+[*][I]/link <minecraft name>[/I] — start linking your Minecraft account (you must be online)
+[*][I]/unlink[/I] — unlink your Minecraft account
+[*][I]/minecraft <@user>[/I] — get the Minecraft account linked to a Discord user [COLOR=#808080](admins only by default)[/COLOR]
+[*][I]/discord <minecraft name>[/I] — get the Discord account linked to a Minecraft player [COLOR=#808080](admins only by default)[/COLOR]
+[*][I]/ping[/I] — show the bot latency
+[/LIST]
+[COLOR=#808080]Who can use the admin commands can be changed in your Discord server settings → Integrations.[/COLOR]
+
+[B]Minecraft[/B]
+[LIST]
+[*][I]/link <code>[/I] — confirm the link with the code received on Discord
+[*][I]/unlink[/I] — unlink your Discord account
+[*][I]/claimboost[/I] — claim your reward if you boost the Discord server
+[*][I]/stopbot[/I] (alias [I]/stopdiscord[/I]) — stop the Discord bot — permission [I]discord.stopbot[/I]
+[/LIST]
+
+[IMG]https://raw.githubusercontent.com/Benoit-V/DiscordRankSync/master/docs/spigot/header-placeholders.png[/IMG]
+
+[LIST]
+[*][I]%discordranksync_discord%[/I] — Discord name of the player (server nickname)
+[*][I]%discordranksync_is_linked%[/I] — [I]true[/I] or [I]false[/I]
+[*][I]%discordranksync_is_boost%[/I] — [I]true[/I] if the player boosts the Discord server
+[*][I]%discordranksync_members%[/I] — number of members on the Discord server [COLOR=#808080](not available in standalone mode)[/COLOR]
+[/LIST]
+[COLOR=#808080]For players who are not linked, [I]discord[/I] and [I]is_boost[/I] return the [I]papi-not-linked[/I] message from the config.[/COLOR]
+
+[IMG]https://raw.githubusercontent.com/Benoit-V/DiscordRankSync/master/docs/spigot/header-network.png[/IMG]
+
+[LIST]
+[*][B]Single server[/B]: just put the jar on your Spigot / Paper server.
+[*][B]BungeeCord or Velocity[/B]: put the jar on your proxy, it runs the bot. Roles follow the permissions the player has on the proxy.
+[*][B]PlaceholderAPI behind a proxy[/B]: also put the jar on your Spigot servers with [I]standalone: true[/I]. They don't start the bot and receive the data from the proxy (plugin messages, or Redis with [I]redis.enable: true[/I]).
+[*][B]Several proxies[/B]: with RedisBungee, one proxy runs the bot and another one takes over automatically if it goes down.
+[*][B]Commands on your Spigot servers[/B]: prefix a link or boost reward command with [I][FORWARD] [/I] to run it on the Spigot servers connected to Redis instead of the proxy. It needs Redis and the same [I]redis.secret[/I] (a long random value) on the proxy and on every Spigot server.
+[/LIST]
+
+[IMG]https://raw.githubusercontent.com/Benoit-V/DiscordRankSync/master/docs/spigot/header-config.png[/IMG]
+
+Every option is documented in the default [URL='https://github.com/Benoit-V/DiscordRankSync/blob/master/Common/src/main/resources/config.yml']config.yml[/URL]: ranks, rewards, boost delay, join message for unlinked players, bot activity, databases, Redis and all the messages.
+
+[IMG]https://raw.githubusercontent.com/Benoit-V/DiscordRankSync/master/docs/spigot/header-support.png[/IMG]
+
+[LIST]
+[*]Questions or problems: [URL='https://bebedlastreat.fr/discord']join the support Discord[/URL] rather than leaving a review, it's much faster to fix your issue.
+[*]Bug reports and contributions: [URL='https://github.com/Benoit-V/DiscordRankSync/issues']GitHub issues[/URL].
+[*]Enjoying the plugin? A ★★★★★ review helps a lot!
+[/LIST]
+
+[CENTER][COLOR=#808080]Usage statistics on [URL='https://bstats.org/plugin/bukkit/DiscordRankSync/19271']bStats[/URL][/COLOR][/CENTER]

@@ -1,0 +1,92 @@
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;700&family=Silkscreen&display=block");
+
+:root {
+  --bg: #0f1117;
+  --bg-2: #161a23;
+  --card: #1c212c;
+  --card-2: #232937;
+  --line: #2e3545;
+  --text: #eef0f5;
+  --muted: #98a2b6;
+  --blurple: #5865f2;
+  --blurple-2: #7b86ff;
+  --grass: #5fb34a;
+  --grass-2: #8fd16a;
+  --dirt: #8a5a35;
+  --gold: #f4c247;
+  --pink: #f47fff;
+  --red: #ef5a5a;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body { background: transparent; }
+
+body {
+  font-family: "Inter", sans-serif;
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+.frame {
+  position: relative;
+  overflow: hidden;
+  border-radius: 22px;
+  background:
+    radial-gradient(900px 420px at 0% 0%, rgba(88, 101, 242, .28), transparent 60%),
+    radial-gradient(700px 380px at 100% 100%, rgba(95, 179, 74, .22), transparent 60%),
+    var(--bg);
+  border: 1px solid var(--line);
+}
+
+/* faint pixel grid, a nod to Minecraft */
+.frame::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, .025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, .025) 1px, transparent 1px);
+  background-size: 24px 24px;
+  pointer-events: none;
+}
+
+.pixel { font-family: "Silkscreen", monospace; letter-spacing: .04em; }
+.mono { font-family: "JetBrains Mono", monospace; }
+.display { font-family: "Space Grotesk", sans-serif; font-weight: 700; letter-spacing: -.02em; }
+
+.grad {
+  background: linear-gradient(90deg, var(--blurple-2), var(--grass-2));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: var(--card-2);
+  border: 1px solid var(--line);
+  font: 600 15px "Inter", sans-serif;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+
+.card {
+  background: rgba(28, 33, 44, .92);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+}
+
+.label {
+  font: 400 12px "Silkscreen", monospace;
+  letter-spacing: .12em;
+  color: var(--muted);
+}
+
+.pixel-art { image-rendering: pixelated; shape-rendering: crispEdges; }

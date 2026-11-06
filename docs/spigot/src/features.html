@@ -1,0 +1,34 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="style.css"><script src="icons.js"></script>
+<style>
+  body { width: 1200px; height: 580px; }
+  .frame { width: 1200px; height: 580px; padding: 34px; }
+  .grid { display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; height: 100%; position: relative; z-index: 1; }
+  .tile { padding: 22px 20px; display: flex; flex-direction: column; }
+  .ic { width: 50px; height: 50px; border-radius: 14px; display: grid; place-items: center; margin-bottom: 16px; }
+  h3 { font: 700 20px/1.2 "Space Grotesk"; margin-bottom: 8px; }
+  p { font: 400 14.5px/1.5 "Inter"; color: var(--muted); }
+  .tags { margin-top: auto; padding-top: 12px; display: flex; gap: 6px; flex-wrap: wrap; }
+  .tags span { font: 500 12px "JetBrains Mono"; color: #c9cfdb; background: #262c3a; border: 1px solid var(--line); border-radius: 6px; padding: 3px 7px; }
+</style></head>
+<body>
+<div class="frame"><div class="grid" id="grid"></div></div>
+<script>
+  const features = [
+    ["roles", "#7b86ff", "Rank → role sync", "Each Discord role follows a permission. Works with any permission plugin.", ["group.vip", "LuckPerms"]],
+    ["pen", "#8fd16a", "Nickname sync", "Linked members are renamed to their Minecraft name on Discord.", ["rename: true"]],
+    ["gift", "#f4c247", "Link rewards", "Run console commands when a player links, once or on every link.", ["reward-command"]],
+    ["gem", "#f47fff", "Booster rewards", "Server boosters claim a reward in game, monthly or every X days.", ["/claimboost"]],
+    ["tag", "#3fa4ff", "PlaceholderAPI", "Show the Discord name, link and boost status anywhere.", ["%discordranksync_…%"]],
+    ["net", "#ff9d5c", "Built for networks", "Run it on your proxy, share data with backends, multi-proxy ready.", ["Velocity", "Bungee", "Redis"]],
+    ["db", "#5fd4c4", "Your storage", "Zero-setup SQLite or a shared database for your whole network.", ["SQLite", "MySQL", "MongoDB"]],
+    ["out", "#ef5a5a", "Clean unlinking", "Remove roles on unlink, run commands, auto-unlink members who leave.", ["unlink-command"]],
+  ];
+  document.getElementById("grid").innerHTML = features.map(([ic, c, t, d, tags]) => `
+    <div class="card tile">
+      <div class="ic" style="background:${c}22;color:${c};box-shadow:inset 0 0 0 1px ${c}55">${icon(ic, 26)}</div>
+      <h3>${t}</h3><p>${d}</p>
+      <div class="tags">${tags.map(x => `<span>${x}</span>`).join("")}</div>
+    </div>`).join("");
+</script>
+</body></html>

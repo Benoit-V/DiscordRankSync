@@ -1,0 +1,91 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="style.css"><script src="pixels.js"></script>
+<style>
+  body { width: 1200px; height: 440px; }
+  .frame { width: 1200px; height: 440px; display: flex; align-items: center; padding: 0 56px; gap: 40px; }
+  .left { flex: 1 1 560px; position: relative; z-index: 1; }
+  .kicker { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
+  h1 { font-size: 66px; line-height: 1; margin-bottom: 18px; }
+  .tagline { font: 500 22px/1.4 "Inter"; color: #c9cfdb; max-width: 520px; margin-bottom: 28px; }
+  .tagline b { color: var(--text); font-weight: 600; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; max-width: 600px; }
+  .chips .chip { font-size: 14px; padding: 6px 12px; }
+
+  .right { flex: 0 0 460px; position: relative; height: 340px; z-index: 1; }
+  .mc, .dc { position: absolute; width: 290px; padding: 18px 20px; }
+  .mc { left: 0; top: 0; transform: rotate(-2deg); }
+  .dc { right: 0; bottom: 0; transform: rotate(1.5deg); }
+  .row { display: flex; align-items: center; gap: 12px; margin-top: 14px; }
+  .head { border-radius: 4px; overflow: hidden; box-shadow: 0 0 0 2px rgba(0,0,0,.4); }
+  .name { font: 700 18px "JetBrains Mono"; }
+  .prefix { color: var(--gold); }
+  .perm { margin-top: 14px; font: 500 14px "JetBrains Mono"; color: var(--muted); display: flex; gap: 8px; align-items: center; }
+  .ok { color: var(--grass-2); }
+  .avatar { width: 46px; height: 46px; border-radius: 50%; overflow: hidden; display: grid; place-items: center; background: #2b3245; }
+  .dname { font: 600 18px "Inter"; }
+  .sub { font: 500 13px "Inter"; color: var(--muted); }
+  .roles { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+  .roles .chip { font-size: 13px; padding: 5px 11px; background: #2a3040; }
+  .new { box-shadow: 0 0 0 2px rgba(244, 194, 71, .55); }
+  .link {
+    position: absolute; left: 62px; top: 196px; width: 70px; height: 70px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--blurple), var(--grass)); display: grid; place-items: center;
+    box-shadow: 0 0 0 8px rgba(15,17,23,.9), 0 12px 30px rgba(88,101,242,.45); z-index: 3;
+  }
+  .dash { position: absolute; left: 96px; top: 150px; width: 120px; height: 130px; border-left: 2px dashed rgba(255,255,255,.2); border-bottom: 2px dashed rgba(255,255,255,.2); border-bottom-left-radius: 40px; z-index: 0; }
+</style></head>
+<body>
+<div class="frame">
+  <div class="left">
+    <div class="kicker">
+      <div id="mini"></div>
+      <span class="label">MINECRAFT ⇄ DISCORD</span>
+    </div>
+    <h1 class="display">Discord<span class="grad">RankSync</span></h1>
+    <p class="tagline">Your in-game ranks become <b>Discord roles</b> — linked in seconds, kept in sync automatically.</p>
+    <div class="chips">
+      <span class="chip"><span class="dot" style="background:#f0a020"></span>Spigot / Paper</span>
+      <span class="chip"><span class="dot" style="background:#e6c84a"></span>BungeeCord</span>
+      <span class="chip"><span class="dot" style="background:#3fa4ff"></span>Velocity</span>
+      <span class="chip"><span class="dot" style="background:var(--grass)"></span>1.8 → 26.x</span>
+    </div>
+  </div>
+
+  <div class="right">
+    <div class="dash"></div>
+    <div class="card mc">
+      <div class="label">IN GAME</div>
+      <div class="row">
+        <div class="head" id="head"></div>
+        <div class="name"><span class="prefix">[VIP]</span> Kaelan</div>
+      </div>
+      <div class="perm"><span class="ok">✔</span> group.vip</div>
+      <div class="perm"><span class="ok">✔</span> group.default</div>
+    </div>
+
+    <div class="link" id="sync"></div>
+
+    <div class="card dc">
+      <div class="label">ON DISCORD</div>
+      <div class="row">
+        <div class="avatar" id="avatar"></div>
+        <div>
+          <div class="dname">Kaelan</div>
+          <div class="sub">nickname synced</div>
+        </div>
+      </div>
+      <div class="roles">
+        <span class="chip new"><span class="dot" style="background:var(--gold)"></span>VIP</span>
+        <span class="chip"><span class="dot" style="background:var(--grass)"></span>Member</span>
+        <span class="chip"><span class="dot" style="background:var(--pink)"></span>Booster</span>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  render("mini", grassBlock(22, 3));
+  render("head", playerHead(46));
+  render("avatar", playerHead(46));
+  render("sync", syncGlyph(34, "#ffffff"));
+</script>
+</body></html>

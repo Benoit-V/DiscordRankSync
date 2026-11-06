@@ -1,0 +1,31 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="style.css"><script src="pixels.js"></script>
+<style>
+  body { width: 256px; height: 256px; }
+  .icon {
+    width: 256px; height: 256px; border-radius: 56px; position: relative; overflow: hidden;
+    background: linear-gradient(135deg, #5865f2 0%, #4752c4 45%, #3f8f3a 100%);
+  }
+  .icon::after { content: ""; position: absolute; inset: 0; border-radius: 56px; box-shadow: inset 0 0 0 3px rgba(255,255,255,.12); }
+  #block { position: absolute; left: 34px; top: 34px; filter: drop-shadow(0 8px 14px rgba(0,0,0,.35)); }
+  .bubble {
+    position: absolute; right: 30px; bottom: 30px; width: 112px; height: 112px; border-radius: 30px;
+    background: #ffffff; display: grid; place-items: center; box-shadow: 0 10px 22px rgba(0,0,0,.3);
+  }
+  .sync {
+    position: absolute; left: 50%; top: 50%; width: 66px; height: 66px; margin: -33px 0 0 -33px; border-radius: 50%;
+    background: #0f1117; display: grid; place-items: center; box-shadow: 0 0 0 6px rgba(255,255,255,.95); z-index: 2;
+  }
+</style></head>
+<body>
+  <div class="icon">
+    <div id="block"></div>
+    <div class="bubble"><div id="chat"></div></div>
+    <div class="sync"><div id="sync"></div></div>
+  </div>
+  <script>
+    render("block", grassBlock(112, 11));
+    render("chat", chatGlyph(70, "#5865f2", "#ffffff"));
+    render("sync", syncGlyph(36, "#8fd16a"));
+  </script>
+</body></html>
