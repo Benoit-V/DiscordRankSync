@@ -1,0 +1,37 @@
+[B]This update fixes the crashes reported on Velocity and Spigot/Paper. Updating is strongly recommended.[/B]
+
+[SIZE=4][B]🔧 Crash fix[/B][/SIZE]
+[LIST]
+[*]The data refresh could run every second whatever [I]refresh-delay[/I] was set to. Each run made several Discord and database calls per player, Discord started rate-limiting the bot, and the runs piled up until the server ran out of threads ("Craft Scheduler Thread" crashes, watchdog on Velocity).
+[*]The delays from the config are now respected, and a repeating task no longer starts while the previous one is still running.
+[*]No more blocking Discord call on the main thread at startup.
+[*]The bot, database and Redis connections are now properly closed when the server stops.
+[/LIST]
+
+[SIZE=4][B]🔒 Security[/B][/SIZE]
+[LIST]
+[*]All SQL queries now use prepared statements.
+[*][I][FORWARD][/I] commands sent over Redis are now signed. [B]If you use them, set the same long random [I]redis.secret[/I] on your proxy and on every Spigot server[/B], otherwise they are refused.
+[*]Link codes are generated securely and can only be used once.
+[/LIST]
+
+[SIZE=4][B]🐛 Bug fixes[/B][/SIZE]
+[LIST]
+[*]SQLite: the boost cooldown read another player's data.
+[*][I]/link[/I]: fixed an error when several players linked at the same time, and someone spamming [I]/link[/I] on Discord can no longer block another player.
+[*]A link is no longer confirmed (and rewards no longer given) when saving it to the database fails.
+[*]BungeeCord: player data is now refreshed regularly instead of only once.
+[*]Placeholders now work with RedisBungee, and with emojis or special characters in Discord names.
+[*]Slash commands no longer time out or throw errors.
+[*]Spigot servers in [I]standalone[/I] mode no longer start the bot.
+[*]Startup errors (wrong token, wrong guild id…) are now clearly logged.
+[/LIST]
+
+[SIZE=4][B]⬆ How to update[/B][/SIZE]
+[LIST=1]
+[*]Replace the jar on your proxy and on your Spigot servers.
+[*]Only if you use [I][FORWARD][/I] commands: add [I]redis.secret[/I] to your config (same value everywhere).
+[*]Restart. Your data and the rest of your config are kept.
+[/LIST]
+
+Questions or problems? [URL='https://bebedlastreat.fr/discord']Join the support Discord[/URL].
